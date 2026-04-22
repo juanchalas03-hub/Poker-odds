@@ -1,0 +1,122 @@
+import streamlit as st
+import random
+from itertools import combinations
+
+# ---------- ESTILO MEDIEVAL ----------
+st.markdown("""
+<style>
+body {
+    background-color: #f4ecd8;
+}
+h1 {
+    text-align: center;
+    color: #5a3e1b;
+    font-family: 'Georgia';
+}
+.stButton>button {
+    background-color: #8b5a2b;
+    color: white;
+    border-radius: 10px;
+    height: 3em;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.title("🏰 Calculadora de Poker del Reino 🃏")
+
+# ---------- LÓGICA ----------
+valores = ["2","3","4","5","6","7","8","9","10","J","Q","K","A"]
+palos = ["♠️","♥️","♦️","♣️"]
+mazo = [v + p for v in valores for p in palos]
+
+def valor(carta):
+    v = carta[:-2] if carta[:-2] == "10" else carta[0]
+    return valores.index(v)
+
+def es_color(mano):
+    return len(set(c[-2:] for c in mano)) == 1
+
+def es_escalera(vals):
+    vals = sorted(set(vals))
+    if len(vals) < 5:
+        return False
+    for i in range(len(vals)-4):
+        if vals[i+4] - vals[i] == 4:
+            return True
+    if set([12,0,1,2,3]).issubset(vals):
+        return True
+    return False
+
+def rank_mano(mano):
+    vals = sorted([valor(c) for c in mano], reverse=True)
+    conteo = {v: vals.count(v) for v in set(vals)}
+    conteo_vals = sorted(conteo.values(), reverse=True)
+
+    color = es_color(mano)
+    escalera = es_escalera(vals)
+
+    if escalera and color: return (8, vals)
+    if 4 in conteo_vals: return (7, vals)
+    if 3 in conteo_vals and 2 in conteo_vals: return (6, vals)
+    if color: return (5, vals)
+    if escalera: return (4, vals)
+    if 3 in conteo_vals: return (3, vals)
+    if conteo_vals.count(2) == 2: return (2, vals)
+    if 2 in conteo_vals: return (1, vals)
+    return (0, vals)
+
+def mejor_mano(cartas):
+    return max(rank_mano(list(c)) for c in combinations(cartas, 5))
+
+def calcular_odds(tus_cartas, mesa, jugadores, sims=3000):
+    wins, ties = 0, 0
+
+    for _ in range(sims):
+        deck = mazo.copy()
+
+        for c in tus_cartas + mesa:
+            if c in deck:
+                deck.remove(c)
+
+        mesa_sim = mesa.copy()
+        while len(mesa_sim) < 5:
+            carta = random.choice(deck)
+            mesa_sim.append(carta)
+            deck.remove(carta)
+
+        rivales = []
+        for _ in range(jugadores):
+            mano = random.sample(deck, 2)
+            for c in mano:
+                deck.remove(c)
+            rivales.append(mano)
+
+        tu_rank = mejor_mano(tus_cartas + mesa_sim)
+        ranks_rivales = [mejor_mano(m + mesa_sim) for m in rivales]
+
+        if all(tu_rank > r for r in ranks_rivales):
+            wins += 1
+        elif any(tu_rank == r for r in ranks_rivales):
+            ties += 1
+
+    return wins/sims, ties/sims
+
+# ---------- INTERFAZ ----------
+tus_cartas = st.text_input("🛡️ Tus cartas (ej: A♥️ 10♠️)")
+mesa = st.text_input("📜 Mesa (ej: 7♥️ K♠️ 2♦️)")
+jugadores = st.slider("👥 Número de oponentes", 1, 9, 3)
+
+if st.button("🔮 Consultar destino"):
+    tus = tus_cartas.split()
+    mesa_lista = mesa.split() if mesa else []
+
+    if len(tus) != 2:
+        st.error("Debes ingresar 2 cartas")
+    elif len(mesa_lista) < 3:
+        st.error("Debes ingresar al menos 3 cartas en mesa")
+    else:
+        win, tie = calcular_odds(tus, mesa_lista, jugadores)
+
+        st.success(f"🟢 Victoria: {win*100:.2f}%")
+        st.warning(f"🟡 Empate: {tie*100:.2f}%")
+        st.error(f"🔴 Derrota: {(1-win-tie)*100:.2f}%")
