@@ -2,39 +2,60 @@ import streamlit as st
 import random
 from itertools import combinations
 
-# ---------- ESTILO MEDIEVAL ----------
+# ---------- 🎨 CSS CASINO ----------
 st.markdown("""
 <style>
-body {
-    background-color: #f4ecd8;
+.stApp {
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    color: white;
 }
+
 h1 {
     text-align: center;
-    color: #5a3e1b;
-    font-family: 'Georgia';
+    color: gold;
+    font-family: Georgia;
 }
-.stButton>button {
-    background-color: #8b5a2b;
-    color: white;
+
+.card {
+    display: inline-block;
+    padding: 15px;
+    margin: 5px;
     border-radius: 10px;
-    height: 3em;
+    background: white;
+    color: black;
+    font-size: 22px;
+    font-weight: bold;
+    width: 60px;
+    text-align: center;
+    box-shadow: 2px 2px 10px black;
+}
+
+.result-box {
+    padding: 20px;
+    border-radius: 15px;
+    background: #111;
+    border: 2px solid gold;
+    text-align: center;
+    font-size: 20px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🏰 Calculadora de Poker del Reino 🃏")
+st.title("🎰 Poker Odds Casino 🃏")
 
-# ---------- LÓGICA ----------
+# ---------- CONFIG ----------
 valores = ["2","3","4","5","6","7","8","9","10","J","Q","K","A"]
-palos = ["♠️","♥️","♦️","♣️"]
+palos = ["♠","♥","♦","♣"]
 mazo = [v + p for v in valores for p in palos]
 
+# ---------- FUNCIONES ----------
 def valor(carta):
-    v = carta[:-2] if carta[:-2] == "10" else carta[0]
-    return valores.index(v)
+    if carta.startswith("10"):
+        return valores.index("10")
+    return valores.index(carta[0])
 
 def es_color(mano):
-    return len(set(c[-2:] for c in mano)) == 1
+    return len(set(c[-1] for c in mano)) == 1
 
 def es_escalera(vals):
     vals = sorted(set(vals))
@@ -68,7 +89,7 @@ def rank_mano(mano):
 def mejor_mano(cartas):
     return max(rank_mano(list(c)) for c in combinations(cartas, 5))
 
-def calcular_odds(tus_cartas, mesa, jugadores, sims=3000):
+def calcular_odds(tus_cartas, mesa, jugadores, sims=2000):
     wins, ties = 0, 0
 
     for _ in range(sims):
@@ -101,22 +122,40 @@ def calcular_odds(tus_cartas, mesa, jugadores, sims=3000):
 
     return wins/sims, ties/sims
 
-# ---------- INTERFAZ ----------
-tus_cartas = st.text_input("🛡️ Tus cartas (ej: A♥️ 10♠️)")
-mesa = st.text_input("📜 Mesa (ej: 7♥️ K♠️ 2♦️)")
-jugadores = st.slider("👥 Número de oponentes", 1, 9, 3)
+# ---------- UI ----------
+tus = st.text_input("🃏 Tus cartas (ej: A♠ K♦)")
+mesa = st.text_input("📜 Mesa (ej: 10♠ J♠ Q♠)")
+jugadores = st.slider("👥 Rivales", 1, 9, 3)
 
-if st.button("🔮 Consultar destino"):
-    tus = tus_cartas.split()
+# Mostrar cartas visuales
+def mostrar_cartas(lista):
+    html = ""
+    for c in lista:
+        html += f'<div class="card">{c}</div>'
+    st.markdown(html, unsafe_allow_html=True)
+
+if tus:
+    mostrar_cartas(tus.split())
+
+if mesa:
+    mostrar_cartas(mesa.split())
+
+# Botón
+if st.button("🎲 Calcular Odds"):
+    tus_cartas = tus.split()
     mesa_lista = mesa.split() if mesa else []
 
-    if len(tus) != 2:
+    if len(tus_cartas) != 2:
         st.error("Debes ingresar 2 cartas")
     elif len(mesa_lista) < 3:
-        st.error("Debes ingresar al menos 3 cartas en mesa")
+        st.error("Mínimo 3 cartas en mesa")
     else:
-        win, tie = calcular_odds(tus, mesa_lista, jugadores)
+        win, tie = calcular_odds(tus_cartas, mesa_lista, jugadores)
 
-        st.success(f"🟢 Victoria: {win*100:.2f}%")
-        st.warning(f"🟡 Empate: {tie*100:.2f}%")
-        st.error(f"🔴 Derrota: {(1-win-tie)*100:.2f}%")
+        st.markdown(f"""
+        <div class="result-box">
+        🟢 Ganar: {win*100:.2f}% <br>
+        🟡 Empatar: {tie*100:.2f}% <br>
+        🔴 Perder: {(1-win-tie)*100:.2f}%
+        </div>
+        """, unsafe_allow_html=True)
